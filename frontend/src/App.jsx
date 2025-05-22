@@ -13,6 +13,9 @@ import {
 import { Select, Tooltip } from "antd";
 import axios from "axios";
 import AuthForm from "./components/AuthForm";
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const { Option } = Select;
 
@@ -257,6 +260,80 @@ function ChatBot() {
     setIsAuthenticated(true);
   };
 
+  // Custom markdown components for styling
+  const markdownComponents = {
+    code: ({ node, inline, className, children, ...props }) => {
+      const match = /language-(\w+)/.exec(className || '');
+      const language = match ? match[1] : '';
+      
+      return !inline && match ? (
+        <SyntaxHighlighter
+          style={vscDarkPlus}
+          language={language}
+          PreTag="div"
+          {...props}
+        >
+          {String(children).replace(/\n$/, '')}
+        </SyntaxHighlighter>
+      ) : (
+        <code 
+          style={{
+            backgroundColor: '#374151',
+            color: '#fdba74',
+            padding: '2px 4px',
+            borderRadius: '4px',
+            fontSize: '0.875rem',
+            fontFamily: 'monospace'
+          }}
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    },
+    h1: ({ children }) => (
+      <h1 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginBottom: '0.5rem', marginTop: '1rem' }}>{children}</h1>
+    ),
+    h2: ({ children }) => (
+      <h2 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'white', marginBottom: '0.5rem', marginTop: '0.75rem' }}>{children}</h2>
+    ),
+    h3: ({ children }) => (
+      <h3 style={{ fontSize: '1rem', fontWeight: '500', color: 'white', marginBottom: '0.25rem', marginTop: '0.5rem' }}>{children}</h3>
+    ),
+    p: ({ children }) => (
+      <p style={{ color: '#f3f4f6', marginBottom: '0.5rem', lineHeight: '1.625' }}>{children}</p>
+    ),
+    ul: ({ children }) => (
+      <ul style={{ listStyle: 'disc', listStylePosition: 'inside', color: '#f3f4f6', marginBottom: '0.5rem' }}>{children}</ul>
+    ),
+    ol: ({ children }) => (
+      <ol style={{ listStyle: 'decimal', listStylePosition: 'inside', color: '#f3f4f6', marginBottom: '0.5rem' }}>{children}</ol>
+    ),
+    li: ({ children }) => (
+      <li style={{ color: '#f3f4f6', marginBottom: '0.25rem' }}>{children}</li>
+    ),
+    blockquote: ({ children }) => (
+      <blockquote style={{ 
+        borderLeft: '4px solid #6366f1', 
+        paddingLeft: '1rem', 
+        margin: '0.5rem 0', 
+        color: '#d1d5db', 
+        fontStyle: 'italic', 
+        backgroundColor: 'rgba(31, 41, 55, 0.5)', 
+        padding: '0.5rem 0 0.5rem 1rem', 
+        borderRadius: '0 4px 4px 0' 
+      }}>
+        {children}
+      </blockquote>
+    ),
+    strong: ({ children }) => (
+      <strong style={{ fontWeight: '600', color: 'white' }}>{children}</strong>
+    ),
+    em: ({ children }) => (
+      <em style={{ fontStyle: 'italic', color: '#e5e7eb' }}>{children}</em>
+    ),
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -398,8 +475,18 @@ function ChatBot() {
                         </span>
                       </div>
                     </div>
-                    <div className="whitespace-pre-wrap break-words text-sm md:text-base">
-                      {message.text}
+                    <div className="text-sm md:text-base">
+                      {message.sender === "bot" ? (
+                        <ReactMarkdown 
+                          components={markdownComponents}
+                        >
+                          {message.text}
+                        </ReactMarkdown>
+                      ) : (
+                        <div className="whitespace-pre-wrap break-words">
+                          {message.text}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -526,6 +613,19 @@ function ChatBot() {
           
           .animate-fade-in-down {
             animation: fade-in-down 0.3s ease-out;
+          }
+          
+          .markdown-content pre {
+            overflow-x: auto;
+            margin: 0.5rem 0;
+          }
+          
+          .markdown-content > *:first-child {
+            margin-top: 0 !important;
+          }
+          
+          .markdown-content > *:last-child {
+            margin-bottom: 0 !important;
           }
         `}</style>
       </div>

@@ -1,57 +1,59 @@
 const { Groq } = require('groq-sdk');
 require('dotenv').config();
+
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-exports.generateQuery = async (database, schema, prompt) => {
+/**
+ * Generate a query based on database type, schema, prompt, and previous chat context.
+ * @param {string} database - The type of database (e.g., MongoDB, PostgreSQL, MySQL).
+ * @param {string} schema - The database schema or structure.
+ * @param {string} prompt - The user's current query request.
+ * @param {Array} previousMessages - Optional array of previous user/assistant messages for context.
+ * @returns {string} - AI-generated query with explanation.
+ */
+exports.generateQuery = async (database, schema, prompt, previousMessages = []) => {
     try {
-        // Define database-specific instructions
+        // Step 1: Define database-specific instructions
         const databaseInstructions = {
             MongoDB: `
-        You are a MongoDB expert. Given the schema and user prompt, generate a valid MongoDB query using proper MongoDB syntax (e.g., find, aggregate). Then, explain step-by-step how the query addresses the user's request in the context of the provided schema. 
-        
-        Output format:
-        1. Query (MongoDB syntax only, no markdown or comments)
-        2. Explanation (clear, concise, and aligned with the query logic)
-        
-        Schema:
-        ${schema}
-        
-        User Prompt:
-        ${prompt}
-    `,
+You are a MongoDB expert. Given the schema and user prompt, generate a valid MongoDB query using proper MongoDB syntax (e.g., find, aggregate). Then, explain step-by-step how the query addresses the user's request in the context of the provided schema.
+
+Output format:
+1. Query (MongoDB syntax only, no markdown or comments)
+2. Explanation (clear, concise, and aligned with the query logic)
+
+Schema:
+${schema}
+
+User Prompt:
+${prompt}
+`,
             PostgreSQL: `
-        You are a PostgreSQL expert. Based on the provided schema and user prompt, generate a valid SQL query in PostgreSQL syntax. Then, provide a clear explanation of how the query satisfies the prompt, referencing specific schema elements.
-        
-        Output format:
-        1. Query (PostgreSQL SQL only, with semicolons, no markdown or comments)
-        2. Explanation (step-by-step breakdown of logic and SQL clauses used)
-        
-        Schema:
-        ${schema}
-        
-        User Prompt:
-        ${prompt}
-    `,
+You are a PostgreSQL expert. Based on the provided schema and user prompt, generate a valid SQL query in PostgreSQL syntax. Then, provide a clear explanation of how the query satisfies the prompt, referencing specific schema elements.
+
+Output format:
+1. Query (PostgreSQL SQL only, with semicolons, no markdown or comments)
+2. Explanation (step-by-step breakdown of logic and SQL clauses used)
+
+Schema:
+${schema}
+
+User Prompt:
+${prompt}
+`,
             MySQL: `
-        You are a MySQL expert. Based on the MySQL CREATE TABLE schema and user prompt, generate a valid MySQL query using proper syntax and structure. Then, explain how each part of the query corresponds to the schema and fulfills the user's request.
-        
-        Output format:
-        1. Query (strict MySQL syntax, ending with a semicolon; no markdown, comments, or MongoDB syntax)
-        2. Explanation (detailed, with reference to schema fields and SQL logic)
-        
-        Example:
-        Schema: "CREATE TABLE users (id INT, name VARCHAR(255))"
-        Prompt: "Get all users named John"
-        Output:
-        Query: SELECT * FROM users WHERE name = 'John';
-        Explanation: This query selects all records from the 'users' table where the 'name' field equals 'John'.
-        
-        Schema:
-        ${schema}
-        
-        User Prompt:
-        ${prompt}
-    `,
+You are a MySQL expert. Based on the MySQL CREATE TABLE schema and user prompt, generate a valid MySQL query using proper syntax and structure. Then, explain how each part of the query corresponds to the schema and fulfills the user's request.
+
+Output format:
+1. Query (strict MySQL syntax, ending with a semicolon; no markdown, comments, or MongoDB syntax)
+2. Explanation (detailed, with reference to schema fields and SQL logic)
+
+Schema:
+${schema}
+
+User Prompt:
+${prompt}
+`
         };
 
         const instruction = databaseInstructions[database];
@@ -59,18 +61,21 @@ exports.generateQuery = async (database, schema, prompt) => {
             throw new Error(`No instructions defined for database: ${database}`);
         }
 
+        const messages = [
+            {
+                role: 'system',
+                content: instruction,
+            },
+            ...previousMessages, 
+            {
+                role: 'user',
+                content: prompt,
+            }
+        ];
+
         const response = await groq.chat.completions.create({
             model: 'llama3-8b-8192',
-            messages: [
-                {
-                    role: 'system',
-                    content: instruction,
-                },
-                {
-                    role: 'user',
-                    content: prompt,
-                },
-            ],
+            messages,
             max_tokens: 500,
             temperature: 0.7,
         });

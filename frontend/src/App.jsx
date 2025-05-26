@@ -131,89 +131,94 @@ function ChatBot() {
       showToastMessage("Failed to save message");
     }
   };
+const handleSubmit = async () => {
+  if (!input.trim()) return;
+  const token = localStorage.getItem("token");
 
-  const handleSubmit = async () => {
-    if (!input.trim()) return;
-    const token = localStorage.getItem("token");
+  if (!schemaSubmitted) {
+    setSchema(input);
+    setSchemaSubmitted(true);
+    showToastMessage("Schema submitted successfully");
 
-    if (!schemaSubmitted) {
-      setSchema(input);
-      setSchemaSubmitted(true);
-      showToastMessage("Schema submitted successfully");
+    const systemMessage = {
+      sender: "system",
+      text: `${database} schema has been set. You can now enter your query requests.`,
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+    setMessages((prev) => [...prev, systemMessage]);
+    await saveMessageToBackend(systemMessage, token);
+    setInput("");
+    setTimeout(() => inputRef.current?.focus(), 100);
+  } else {
+    const userMessage = {
+      sender: "user",
+      text: input,
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    await saveMessageToBackend(userMessage, token);
+    setInput("");
+    setLoading(true);
 
-      const systemMessage = {
-        sender: "system",
-        text: `${database} schema has been set. You can now enter your query requests.`,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
+    try {
+      // Include previous messages in the API request
+      const previousMessages = messages.map((msg) => ({
+        sender: msg.sender,
+        text: msg.text,
+        timestamp: msg.timestamp,
+      }));
+      const res = await fetch("http://localhost:5005/api/generate-query", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          database,
+          schema,
+          prompt: input,
+          previousMessages, // Add previous messages to the payload
         }),
-      };
-      setMessages((prev) => [...prev, systemMessage]);
-      await saveMessageToBackend(systemMessage, token);
-      setInput("");
-      setTimeout(() => inputRef.current?.focus(), 100);
-    } else {
-      const userMessage = {
-        sender: "user",
-        text: input,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setMessages((prev) => [...prev, userMessage]);
-      await saveMessageToBackend(userMessage, token);
-      setInput("");
-      setLoading(true);
+      });
 
-      try {
-        const res = await fetch("http://localhost:5005/api/generate-query", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            database,
-            schema,
-            prompt: input,
-          }),
-        });
-
-        if (!res.ok) {
-          throw new Error("Failed to generate query");
-        }
-
-        const data = await res.json();
-        const aiMessage = {
-          sender: "bot",
-          text: data.query || "No response from AI.",
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        };
-        setMessages((prev) => [...prev, aiMessage]);
-        await saveMessageToBackend(aiMessage, token);
-        setLoading(false);
-      } catch (err) {
-        console.error(err);
-        const errorMessage = {
-          sender: "bot",
-          text: "❌ Failed to generate query. Please try again or check your connection.",
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-        await saveMessageToBackend(errorMessage, token);
-        setLoading(false);
+      if (!res.ok) {
+        throw new Error("Failed to generate query");
       }
-    }
-  };
 
+      const data = await res.json();
+      const aiMessage = {
+        sender: "bot",
+        text: data.query || "No response from AI.",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+      await saveMessageToBackend(aiMessage, token);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      const errorMessage = {
+        sender: "bot",
+        text: "❌ Failed to generate query. Please try again or check your connection.",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      await saveMessageToBackend(errorMessage, token);
+      setLoading(false);
+    }
+  }
+};
   const resetAll = async () => {
     setMessages([]);
     setSchemaSubmitted(false);
